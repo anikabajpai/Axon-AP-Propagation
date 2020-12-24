@@ -1,0 +1,124 @@
+// add conductances based on params
+proc initialize(){
+        vshift_na12 = -35 - (-30) -10  // negative shift of input voltage, high threshold  -30mV
+        vshift_na16 = -35 - (-43) -10    // positive shift of input voltage, low threshold  -43mV
+		soma {
+			L=Lsoma
+			diam=fiber_diameter
+			insert pas
+			g_pas=passiveg
+			e_pas=v_init
+			Ra=nodal_axial_resistivity*(1/(axon_diameter/fiber_diameter)^2)
+			cm=passivecm
+			nseg = 5
+		}
+
+		for i=0,Nnode-1 node[i]{
+			diam=(nodal_diameter+nodal_diameter_inc)
+			L=Lnode
+			cm=cm_node
+			Ra=nodal_axial_resistivity
+
+//			insert na12
+//			insert na16
+//			gbar_na12 = nag*100/2  //nag/200
+//			gbar_na16 = nag*100/2  //nag/200
+
+			insert axnode75
+			gnabar_axnode75=nag
+			gnapbar_axnode75=0.00
+			gkbar_axnode75=0.0
+
+			nseg = 1
+		}
+		mysaddin=(axon_diameter-nodal_diameter)/(NmysaSec)
+		mysaddout=(fiber_diameter-nodal_diameter)/(NmysaSec)
+		mysaDL=(Lmysa)/NmysaSec
+
+		kmax=NmysaSec-1
+		for k=0,kmax mysaextra[k] {
+            insert pas
+            L=mysaDL
+            Dout=(fiber_diameter-nodal_diameter)*cos(L*(k)*PI/(2*Lmysa))+nodal_diameter
+            Din=nodal_diameter*exp(((kmax-k)/(kmax))*log(axon_diameter/nodal_diameter))
+            diam=Dout
+            delta=abs(Dout-Din)/2
+            nnl=delta/(thickness_myelin)
+            if(nnl<=0){nnl=1}
+            cm=2*eo*er/( Dout*log(Dout/Din))
+            cm=cm/(1+cm*Dout/(cm_node*Din))
+            g_pas=g_nl/(2*nnl)
+            e_pas=v_init
+            Ra=nodal_axial_resistivity*(1/(Din/Dout)^2)
+            nseg = 1
+        }
+
+		for h=0,Send {
+			for k=0,kmax mysaleft[NmysaSec*h+k] {
+                insert pas
+                L=mysaDL
+                Dout=(fiber_diameter-nodal_diameter)*sin(L*(k+1)*PI/(2*Lmysa))+nodal_diameter
+                Din=nodal_diameter*exp(((k)/(kmax))*log(axon_diameter/nodal_diameter))
+                diam=Dout
+                delta=abs(Dout-Din)/2
+                nnl=delta/(thickness_myelin)
+                if(nnl<=0){nnl=1}
+                cm=2*eo*er/( Dout*log(Dout/Din))
+                cm=cm/(1+cm*Dout/(cm_node*Din))
+                g_pas=g_nl/(2*nnl)
+                e_pas=v_init
+                Ra=nodal_axial_resistivity*(1/(Din/Dout)^2)
+                nseg = 1
+            }
+		}
+
+		for h=0,Send {
+            for k=0,kmax mysaright[NmysaSec*h+k] {
+                insert pas
+                L=mysaDL
+                Dout=(fiber_diameter-nodal_diameter)*cos(L*(k)*PI/(2*Lmysa))+nodal_diameter
+                Din=nodal_diameter*exp(((kmax-k)/(kmax))*log(axon_diameter/nodal_diameter))
+                diam=Dout
+                delta=abs(Dout-Din)/2
+                nnl=delta/(thickness_myelin)
+                if(nnl<=0){nnl=1}
+                cm=2*eo*er/( Dout*log(Dout/Din))
+                cm=cm/(1+cm*Dout/(cm_node*Din))
+                g_pas=g_nl/(2*nnl)
+                e_pas=v_init
+                Ra=nodal_axial_resistivity*(1/(Din/Dout)^2)
+                nseg = 1
+            }
+		}
+
+		for l=0,Nflut-1 flut[l]{
+			L=Lflut
+			diam=fiber_diameter
+			insert pas
+			g_pas=passiveg
+			cm=passivecm
+			e_pas=v_init
+			Ra=nodal_axial_resistivity*(1/(axon_diameter/fiber_diameter)^2)
+			insert parak75
+			gkbar_parak75=kg*(axon_diameter/fiber_diameter)
+			nseg = 1
+		}
+
+		for w=0,Nstin-1 stin[w] {
+			L=Lstin
+			diam=fiber_diameter
+			insert pas
+			g_pas=passiveg
+			cm=passivecm
+			e_pas=v_init
+			Ra=nodal_axial_resistivity*(1/(axon_diameter/fiber_diameter)^2)
+			nseg = 5
+		}
+    access node[0]
+    area_node = area(0.5)
+    access flut[0]
+    area_flut = area(0.5)
+    finitialize(v_init)
+    fcurrent()
+}
+initialize()

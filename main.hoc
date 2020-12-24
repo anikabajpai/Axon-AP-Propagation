@@ -1,0 +1,116 @@
+proc setup(){
+    load_file("nrngui.hoc")
+    secondorder=2 // good for small time-steps
+    // fixed time-step integration
+    // dt = .0001 // ms
+    // variable integration
+    cvode_active(1)
+    cvode.atol(1e-5) // was set to 1e-5
+    cvode.condition_order(2) // 2 is better for NetCon
+}
+setup()
+
+// load other files
+xopen("1_params.hoc")
+xopen("2_connections.hoc")
+xopen("3_conductances.hoc")
+xopen("4_stim.hoc")
+xopen("5_record.hoc")
+xopen("6_param_sweeps.hoc")
+
+// opens a gui, runs an action potential
+proc run_act(){
+    xopen ("act.ses")
+    initialize()
+    record_start()
+    set_stim()
+    run()
+    save_currs("data/currs.txt")
+    na_flux = na_flux_node15()
+    k_flux = k_flux_node15()
+    print "na_flux_node15 ",na_flux," C"
+    print "k_flux_node15 ",k_flux," C"
+}
+
+proc run_and_record(){
+    // run simulation
+    initialize()
+    record_start()
+    set_stim()
+    run()
+
+    // record ap timing at node[i] in apt[i]
+    time10=apt[9].x(0)
+    time20=apt[19].x(0)
+
+    // record avg velocity between node 9 and 19
+    ave_velocity = -1
+    if(time20 > time10){
+        ave_velocity= (19-9)*Lsection/((time20-time10)*1000)
+    }
+    if(ave_velocity>-1){
+        //fprint("%f %f %f %f %f %f %f %f %f %f\n",nodal_diameter,axon_diameter,nl*(2*thickness_mycalelin),fiber_diameter,Lsection,9*Lsection,time20-time10,Avg1,nag,kg)
+        //printf("%f %f %f %f %f %f %f %f %f %f\n",nodal_diameter,axon_diameter,nl*(2*thickness_myelin),fiber_diameter,Lsection,9*Lsection,time20-time10,Avg1,nag,kg)
+        fprint("%f %f %f %f %f %.8f %.8f %f\n",nodal_diameter,axon_diameter,ave_velocity,nag,kg,na_flux_node15(),k_flux_node15(),Lnode) // (Plotting columns 1 & 3 of the output will provide a conduction-velocity vs Nodal-Diameter curve as seen in our paper)
+        printf("%f %f %f %f %f %.8f %.8f %f\n",nodal_diameter,axon_diameter,ave_velocity,nag,kg,na_flux_node15(),k_flux_node15(),Lnode)
+    }
+}
+// sweeps over different variables, records and prints all the variables shown in printf statement
+proc run_loop(){
+    wopen("data/out.txt")
+    fprint("%s %s %s %s %s %s %s %s\n","nodal_diameter","axon_diameter","ave_velocity","nag","kg","na_flux","k_flux","nodal_length")
+    printf("%s %s %s %s %s %s %s %s\n","nodal_diameter","axon_diameter","ave_velocity","nag","kg","na_flux","k_flux","nodal_length")
+
+    // change fiber diameter
+    xo=20.00
+    dx=.25
+    xf=20.00
+    xmax=(xf-xo)/dx
+    for xind=0,xmax {
+        fiber_diameter=xo+xind*dx
+        set_fiber_diameter_params()
+
+    // change nodal diameter
+    yo=.8
+    dy=.25
+    yf=axon_diameter+dy*2
+    ymax=(yf-yo)/dy
+    for yind=0,ymax {
+        nodal_diameter=yo+yind*dy
+        set_nodal_diameter_params()
+
+    // change nodal length
+    zo=.6
+    dz=.2
+    zf=2
+    zmax=(zf-zo)/dz
+    for zind=0,zmax {
+        Lnode = zo+zind*dz
+        set_nodal_length_params()
+
+    // change internodal length
+    xxo=1000
+    dxx=.2
+    xxf=xxo+2
+    xxmax=(xxf-xxo)/dxx
+    for xxind=0,xxmax {
+        Lsection = xxo+xxind*dxx
+        set_internodal_length_params()
+
+    run_and_record() // run and record velocity
+    }}}}
+
+}
+
+//Lnode = 1e-7
+//set_nodal_length_params()
+//nodal_diameter = 1e-7
+//set_nodal_diameter_params()
+
+//istim  = .04 // fires between .04 and .045
+
+//Lsection = 5650
+//set_internodal_length_params()
+run_act()
+
+//run_loop()

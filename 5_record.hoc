@@ -1,0 +1,87 @@
+// Record from nodes from injection site
+objref rec_currs, null
+objref nc[Nnode], apt[Nnode]
+objref rec_na[Nnode], rec_k[Nflut], rec_t
+objref f
+strdef s1
+
+// record spike times, Na flux, K flux at each node
+proc record_start(){
+    for i=0,Nnode-1 {
+        node[i] nc[i] = new NetCon(&v(0.5), null, -40, 0, 0)
+        apt[i] = new Vector()               // Action potential times
+        nc[i].record(apt[i])
+    }
+
+    // record Na
+    for i=0,Nnode-1{
+        rec_na[i] = new Vector()
+        rec_na[i].record(&node[i].ina_axnode75(0.5))
+    }
+
+    // record K
+    for l=0,Nflut-1{
+        rec_k[l] = new Vector()
+        rec_k[l].record(&flut[l].ik_parak75(0.5))
+    }
+    rec_t = new Vector()
+    rec_t.record(&t)
+}
+
+proc save_currs(){
+  rec_currs= new Matrix()
+  rec_currs.resize(rec_na[0].size(),Nnode+Nflut)
+  for i=0,Nnode-1{
+    rec_currs.setcol(i,rec_na[0])
+  }
+  for i=Nnode,Nnode+Nflut-1{
+    rec_currs.setcol(i,rec_k[0])
+  }
+  // write
+  f = new File()
+  f.wopen($s1)  //open a file with a defined name to save data
+  f.printf("Nnode=%d,Nflut=%d,node_area=%f,flut_area=%f,dt=%f\n",Nnode,Nflut,area_node,area_flut,dt)
+  rec_currs.fprint(f," %g")
+  f.close()
+}
+
+func na_flux_node15(){
+    na_flux = 0
+    for j=1,rec_na[0].size()-1{
+        na_flux += rec_na[15].x[j] * (rec_t.x[j]-rec_t.x[j-1])
+    }
+//    print "area_node ",area_node, na_flux, area_node*na_flux
+    return -1*na_flux*area_node*1e-6 //ma/cm^2 * cm^2 * ms = microCoulombs *1e-6 -> Coulombs
+}
+
+func k_flux_node15(){
+    k_flux = 0
+    for j=1,rec_k[0].size()-1{
+        deltat = rec_t.x[j]-rec_t.x[j-1]
+//        print "deltat ",deltat
+        k_flux += rec_k[29].x[j] * deltat
+        k_flux += rec_k[30].x[j] * deltat
+    }
+    return k_flux*area_flut*1e-6
+}
+
+// totals
+func na_flux_tot(){
+  na_flux = 0
+  for i=0,Nnode-1{
+    for j=0,rec_na[0].size()-1{
+        na_flux += rec_na[i].x[j]
+    }
+  }
+  return -1*na_flux*area_node*1e-6 //ma/cm^2 * cm^2 * ms = microCoulombs *1e-6 -> Coulombs
+}
+
+func k_flux_tot(){
+  k_flux = 0
+  for i=0,Nflut-1{
+    for j=0,rec_k[0].size()-1{
+        k_flux += rec_k[i].x[j]
+    }
+  }
+  return k_flux*area_flut*dt*1e-6
+}
